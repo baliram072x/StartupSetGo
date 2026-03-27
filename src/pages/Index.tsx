@@ -1,7 +1,21 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SectionHeading from "@/components/SectionHeading";
-import { Globe, Smartphone, Shield, Zap, Users, TrendingUp, Star, ArrowRight, CheckCircle } from "lucide-react";
+import { Globe, Smartphone, Shield, Zap, Users, TrendingUp, Star, ArrowRight, CheckCircle, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  content: string;
+  rating: number;
+}
 
 const services = [
   { icon: Globe, title: "Website Development", desc: "Beautiful, fast websites that showcase your business and attract customers online." },
@@ -16,13 +30,79 @@ const benefits = [
   { icon: Shield, title: "Ongoing Support", desc: "We're always here to help" },
 ];
 
-const testimonials = [
-  { name: "Priya Sharma", role: "Café Owner", text: "StartupSetGo built our website in just 5 days. Now customers find us on Google and order online!", rating: 5 },
-  { name: "Rahul Verma", role: "Coaching Institute", text: "Our enrollment doubled after we got our app. Parents love the easy access to schedules and results.", rating: 5 },
-  { name: "Anita Desai", role: "Medical Store", text: "Going digital felt overwhelming, but the team made it so simple. Highly recommended!", rating: 5 },
-];
-
 const Index = () => {
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  
+  // Review Form State
+  const [reviewName, setReviewName] = useState("");
+  const [reviewRole, setReviewRole] = useState("");
+  const [reviewContent, setReviewContent] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    fetchTestimonials();
+  }, []);
+
+  const fetchTestimonials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTestimonials(data || []);
+    } catch (error) {
+      console.error("Error fetching testimonials:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('testimonials')
+        .insert({
+          name: reviewName,
+          role: reviewRole,
+          content: reviewContent,
+          rating: reviewRating,
+          is_approved: false // Admin must approve
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Review Submitted! 🎉",
+        description: "Thank you! Your review will be visible once approved by an admin.",
+      });
+      
+      // Reset form
+      setReviewName("");
+      setReviewRole("");
+      setReviewContent("");
+      setReviewRating(5);
+      setIsDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit review.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="overflow-hidden">
       {/* Hero */}
@@ -116,26 +196,112 @@ const Index = () => {
       {/* Testimonials */}
       <section className="py-20 bg-background">
         <div className="container mx-auto px-4">
-          <SectionHeading
-            badge="Testimonials"
-            title="Trusted by Small Business Owners"
-            subtitle="See what our clients say about working with us."
-          />
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+            <div className="max-w-2xl">
+              <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-3">
+                Testimonials
+              </span>
+              <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mb-4">
+                Trusted by Small Business Owners
+              </h2>
+              <p className="text-muted-foreground text-lg">
+                See what our clients say about working with us.
+              </p>
+            </div>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <MessageCircle size={18} /> Write a Review
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Share Your Experience</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleReviewSubmit} className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Your Name</label>
+                    <Input 
+                      placeholder="e.g. Rajesh Kumar" 
+                      value={reviewName}
+                      onChange={(e) => setReviewName(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Your Role / Business</label>
+                    <Input 
+                      placeholder="e.g. Shop Owner" 
+                      value={reviewRole}
+                      onChange={(e) => setReviewRole(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Rating</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className={`focus:outline-none transition-transform hover:scale-110 ${
+                            reviewRating >= star ? "text-yellow-400" : "text-muted"
+                          }`}
+                        >
+                          <Star size={24} fill={reviewRating >= star ? "currentColor" : "none"} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Your Review</label>
+                    <Textarea 
+                      placeholder="How was your experience working with StartupSetGo?" 
+                      rows={4}
+                      value={reviewContent}
+                      onChange={(e) => setReviewContent(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? "Submitting..." : "Submit Review"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((t) => (
-              <div key={t.name} className="bg-card rounded-xl p-8 border border-border shadow-card">
-                <div className="flex gap-1 mb-4">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} size={16} className="fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-muted-foreground leading-relaxed mb-6">"{t.text}"</p>
-                <div>
-                  <p className="font-heading font-bold text-foreground">{t.name}</p>
-                  <p className="text-sm text-muted-foreground">{t.role}</p>
-                </div>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-card rounded-xl p-8 border border-border h-48 animate-pulse" />
+              ))
+            ) : testimonials.length === 0 ? (
+              <div className="col-span-full text-center py-10 text-muted-foreground">
+                No reviews yet. Be the first to write one!
               </div>
-            ))}
+            ) : (
+              testimonials.map((t) => (
+                <div key={t.id} className="bg-card rounded-xl p-8 border border-border shadow-card animate-fade-up">
+                  <div className="flex gap-1 mb-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star 
+                        key={i} 
+                        size={16} 
+                        className={i < t.rating ? "fill-yellow-400 text-yellow-400" : "text-muted"} 
+                      />
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed mb-6">"{t.content}"</p>
+                  <div>
+                    <p className="font-heading font-bold text-foreground">{t.name}</p>
+                    <p className="text-sm text-muted-foreground">{t.role}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
