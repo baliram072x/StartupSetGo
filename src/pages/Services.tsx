@@ -12,7 +12,7 @@ const serviceCategories = [
     plans: [
       { name: "Basic", price: "₹9,999", features: ["5 Pages", "Mobile Responsive", "Contact Form", "1 Month Support"] },
       { name: "Standard", price: "₹19,999", features: ["10 Pages", "WhatsApp Chat", "Payment Gateway", "3 Months Support", "SEO Setup"] },
-      { name: "Premium", price: "₹34,999", features: ["Unlimited Pages", "Custom Design", "E-commerce Ready", "6 Months Support", "Advanced SEO", "Analytics Dashboard"] },
+      { name: "Premium", price: "₹29,999", features: ["Unlimited Pages", "Custom Design", "E-commerce Ready", "6 Months Support", "Advanced SEO", "Analytics Dashboard"] },
     ],
   },
   {
